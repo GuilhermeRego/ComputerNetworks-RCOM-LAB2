@@ -13,13 +13,7 @@
 
 #define FTP_PORT 21
 
-#define MAX_BUFFER_SIZE 255
-#define MAX_COMMAND_LENGTH 512
-
-#define AT "@"
-#define SLASH "/"
-
-int sockfdB;
+#define MAX_BUFFER_SIZE 512
 
 typedef struct {
     char user[MAX_BUFFER_SIZE];
@@ -103,13 +97,13 @@ int parse_URL(char *input, URL *url) {
         strcpy(url->user, user);
 
         //Get password
-        char pass_delimiter[] = AT;
+        char pass_delimiter[] = "@";
         int password_index = strlen(user) + 7;
         password = strtok(&input[password_index], pass_delimiter);
         strcpy(url->password, password);
 
         //Get host
-        char host_delimiter[] = SLASH;
+        char host_delimiter[] = "/";
         int host_index = password_index + strlen(password) + 1;
         host = strtok(&input[host_index], host_delimiter);
         strcpy(url->host, host);
@@ -155,17 +149,20 @@ int parseFilename(char *path, URL *url) {
 
     // Parse the filename from the path
     char filename[MAX_BUFFER_SIZE];
-    char path_to_remove[MAX_BUFFER_SIZE];
+    char remove[MAX_BUFFER_SIZE];
     strcpy(filename, path);
 
     // While there is a slash in the filename
     while (strchr(filename, '/')) {
-        const char path_deli[] = SLASH;
-        strcpy(path_to_remove, strtok(&filename[0], path_deli));
-        strcpy(filename, filename + strlen(path_to_remove) + 1);
+        const char path_delimiter[] = "/";
+        strcpy(remove, strtok(&filename[0], path_delimiter));
+        strcpy(filename, filename + strlen(remove) + 1);
     }
+
+	// Copy the filename to the url struct
     strcpy(url->filename, filename);
 
+	// Check if the filename is NULL or empty
      if (url->filename == NULL || strlen(url->filename) == 0) {
          printf("ERROR: url->filename is NULL\n");
          return 1;
@@ -212,14 +209,14 @@ int read_socket(int sockfd, char* response) {
     }
 
     // Read the response from the server
-    FILE* fp = fdopen(sockfd, "r");
     memset(response, 0, MAX_BUFFER_SIZE);
-    response = fgets(response, MAX_BUFFER_SIZE, fp);
+	FILE* file = fdopen(sockfd, "r");
+    response = fgets(response, MAX_BUFFER_SIZE, file);
 
     // Check if the response is valid (starts with a number between 1 and 5 and has a space in the 4th position)
-    while (!('1' <= response[0] && response[0] <= '5') || response[3] != ' ') {
+    while (!(response[0] <= '5' && '1' <= response[0]) || response[3] != ' ') {
         memset(response, 0, MAX_BUFFER_SIZE);
-        response = fgets(response, MAX_BUFFER_SIZE, fp);
+        response = fgets(response, MAX_BUFFER_SIZE, file);
     }
     // response[0] >= 1 && response[0] <= 5 means received a status line
     // response[3] == ' ' means received a last status line
@@ -228,7 +225,7 @@ int read_socket(int sockfd, char* response) {
 }
 
 // Send a command to the server writing it to the socket
-int ftp_send_command(int sockfd, const char* command, int command_size, char* response) {
+int ftp_write_command(int sockfd, const char* command, int command_size, char* response) {
     // Check if the command or response is NULL
     if (command == NULL || response == NULL) {
         printf("ERROR: command or response is NULL\n");
@@ -251,7 +248,7 @@ int ftp_send_command(int sockfd, const char* command, int command_size, char* re
 }
 
 // Enter passive mode
-int ftp_passive_mode(int sockfdA, char* command, size_t command_size, char* response) {
+int ftp_passive_mode(int sockfdA, int sockfdB, char* command, size_t command_size, char* response) {
     // Check if the command or response is NULL
     if (command == NULL || response == NULL) {
         printf("ERROR: command or response is NULL\n");
@@ -259,8 +256,8 @@ int ftp_passive_mode(int sockfdA, char* command, size_t command_size, char* resp
     }
 
     // Send the command to the server
-    if (ftp_send_command(sockfdA, command, command_size, response)) {
-        printf("ERROR: ftp_send_command()");
+    if (ftp_write_command(sockfdA, command, command_size, response)) {
+        printf("ERROR: ftp_write_command()");
         return 1;
     }
 
@@ -378,18 +375,18 @@ int authenticate(const URL url, char* command, char* response, int sockfdA) {
     // Get user command
     sprintf(command, "USER %s\r\n", url.user);
     // Send user command
-    if (ftp_send_command(sockfdA, command, strlen(command), response) != 0){
+    if (ftp_write_command(sockfdA, command, strlen(command), response) != 0){
         printf("ERROR: Failed to send USER command\n");
         return 1;
     }
 
     // Get password command
-    bzero(command, MAX_COMMAND_LENGTH);
+    bzero(command, MAX_BUFFER_SIZE);
     bzero(response, MAX_BUFFER_SIZE);
     sprintf(command, "PASS %s\r\n", url.password);
 
     // Send password command
-    if(ftp_send_command(sockfdA, command, strlen(command), response)){
+    if(ftp_write_command(sockfdA, command, strlen(command), response)){
         printf("ERROR: Failed to send PASS command\n");
         return 1;
     }
@@ -405,7 +402,7 @@ int main(int argc, char** argv){
 	}
 
     // Variables initialization
-	char command[MAX_COMMAND_LENGTH];
+	char command[MAX_BUFFER_SIZE];
 	char response[MAX_BUFFER_SIZE];
     URL url;
 
@@ -461,11 +458,12 @@ int main(int argc, char** argv){
     printf("User authenticated\n");
 
 	// 3: Get passive mode command
-	bzero(command, MAX_COMMAND_LENGTH);
+	bzero(command, MAX_BUFFER_SIZE);
 	bzero(response, MAX_BUFFER_SIZE);
 	sprintf(command, "PASV\r\n");
     // Send passive mode command
-	if (ftp_passive_mode(sockfdA, command, strlen(command), response) < 0) {
+	int sockfdB = ftp_passive_mode(sockfdA, sockfdB, command, strlen(command), response);
+	if (sockfdB < 0) {
 		printf("ERROR: Failed to enter passive mode\n");
         return 1;
     }
@@ -473,7 +471,7 @@ int main(int argc, char** argv){
 
 	// 4: Retrieve file
 	char filepath[MAX_BUFFER_SIZE];
-	bzero(command, MAX_COMMAND_LENGTH);
+	bzero(command, MAX_BUFFER_SIZE);
 	bzero(response, MAX_BUFFER_SIZE);
     sprintf(filepath, "%s", url.path);
 	if (ftp_retrieve_file(sockfdA, filepath, command, response)) {
