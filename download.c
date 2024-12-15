@@ -45,7 +45,7 @@ int getip(char host[], URL* url) {
 }
 
 // Create a struct url with all fields set to 0
-int create_url_struct(URL* url) {
+int create_url(URL* url) {
     // Check if the url is NULL
     if (url == NULL) {
         printf("ERROR: url is NULL\n");
@@ -140,7 +140,7 @@ int parse_URL(char *input, URL *url) {
 }
 
 // Parse the filename from the path (last part of the path)
-int parseFilename(char *path, URL *url) {
+int parse_filename(char *path, URL *url) {
     // Check if the path or url is NULL
     if (path == NULL || url == NULL) {
         printf("ERROR: path or url is NULL\n");
@@ -149,12 +149,12 @@ int parseFilename(char *path, URL *url) {
 
     // Parse the filename from the path
     char filename[MAX_BUFFER_SIZE];
-    char remove[MAX_BUFFER_SIZE];
     strcpy(filename, path);
 
     // While there is a slash in the filename
+    char remove[MAX_BUFFER_SIZE];
     while (strchr(filename, '/')) {
-        const char path_delimiter[] = "/";
+        char path_delimiter[] = "/";
         strcpy(remove, strtok(&filename[0], path_delimiter));
         strcpy(filename, filename + strlen(remove) + 1);
     }
@@ -189,20 +189,22 @@ int create_socket(char* ip, int port) {
 
     // Open the TCP Socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("ERROR: Failed to Open TCP Socket\n");
+        printf("ERROR: Failed to Open TCP Socket socket()\n");
         return -1;
     }
 
     // Connect the socket to the server
     if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
-        perror("ERROR: Failed to connect socket to server\n");
+        printf("ERROR: Failed to connect socket to server connect()\n");
         return -1;
     }
+
     return sockfd;
 }
 
 // Read the response from the server
 int read_socket(int sockfd, char* response) {
+    // Check if the response is NULL
     if (response == NULL) {
         printf("ERROR: response is NULL\n");
         return 1;
@@ -220,12 +222,12 @@ int read_socket(int sockfd, char* response) {
     }
     // response[0] >= 1 && response[0] <= 5 means received a status line
     // response[3] == ' ' means received a last status line
-    // response [0] <= 5 means received numerated status line
+    // response[0] <= 5 means received numerated status line
     return 0;
 }
 
 // Send a command to the server writing it to the socket
-int ftp_write_command(int sockfd, const char* command, int command_size, char* response) {
+int write_command(int sockfd, const char* command, int command_size, char* response) {
     // Check if the command or response is NULL
     if (command == NULL || response == NULL) {
         printf("ERROR: command or response is NULL\n");
@@ -248,7 +250,7 @@ int ftp_write_command(int sockfd, const char* command, int command_size, char* r
 }
 
 // Enter passive mode
-int ftp_passive_mode(int sockfdA, int sockfdB, char* command, size_t command_size, char* response) {
+int passive_mode(int sockfdA, int sockfdB, char* command, size_t command_size, char* response) {
     // Check if the command or response is NULL
     if (command == NULL || response == NULL) {
         printf("ERROR: command or response is NULL\n");
@@ -256,8 +258,8 @@ int ftp_passive_mode(int sockfdA, int sockfdB, char* command, size_t command_siz
     }
 
     // Send the command to the server
-    if (ftp_write_command(sockfdA, command, command_size, response)) {
-        printf("ERROR: ftp_write_command()");
+    if (write_command(sockfdA, command, command_size, response)) {
+        printf("ERROR: write_command()");
         return 1;
     }
 
@@ -288,7 +290,7 @@ int ftp_passive_mode(int sockfdA, int sockfdB, char* command, size_t command_siz
 }
 
 // Send the retrieve command to the server
-int ftp_retr(int socket_id, const char* command, int command_size) {
+int retr(int socket_id, const char* command, int command_size) {
     // Check if the command is NULL
     if (command == NULL) {
         printf("ERROR: command is NULL\n");
@@ -298,7 +300,7 @@ int ftp_retr(int socket_id, const char* command, int command_size) {
     // Write the command to the socket
     int res = write(socket_id, command, command_size);
     if (res <= 0) {
-        printf("ERROR: ftp_retr()\n");
+        printf("ERROR: retr()\n");
         return 1;
     }
 
@@ -306,7 +308,7 @@ int ftp_retr(int socket_id, const char* command, int command_size) {
 }
 
 // Retrieve the file from the server
-int ftp_retrieve_file(int socket_id, char* filepath, char* command, char* response) {
+int retrieve_file(int socket_id, char* filepath, char* command, char* response) {
     // Check if the filepath, command or response is NULL
     if (filepath == NULL || command == NULL || response == NULL) {
         printf("ERROR: filepath, command or response is NULL\n");
@@ -315,8 +317,8 @@ int ftp_retrieve_file(int socket_id, char* filepath, char* command, char* respon
 
     // Send the retrieve command to the server
     sprintf(command, "RETR %s\r\n", filepath);
-    if (ftp_retr(socket_id, command, strlen(command))){
-        printf("ERROR: ftp_retr()\n");
+    if (retr(socket_id, command, strlen(command))){
+        printf("ERROR: retr()\n");
         return 1;
     }
 
@@ -324,7 +326,7 @@ int ftp_retrieve_file(int socket_id, char* filepath, char* command, char* respon
 }
 
 // Download the file from the server
-int ftp_download_file(int sockfdB, char* filename) {
+int download_file(int sockfdB, char* filename) {
     // Check if the filename is NULL
     if (filename == NULL || strlen(filename) == 0) {
         printf("ERROR: filename is NULL\n");
@@ -375,7 +377,7 @@ int authenticate(const URL url, char* command, char* response, int sockfdA) {
     // Get user command
     sprintf(command, "USER %s\r\n", url.user);
     // Send user command
-    if (ftp_write_command(sockfdA, command, strlen(command), response) != 0){
+    if (write_command(sockfdA, command, strlen(command), response) != 0){
         printf("ERROR: Failed to send USER command\n");
         return 1;
     }
@@ -386,7 +388,7 @@ int authenticate(const URL url, char* command, char* response, int sockfdA) {
     sprintf(command, "PASS %s\r\n", url.password);
 
     // Send password command
-    if(ftp_write_command(sockfdA, command, strlen(command), response)){
+    if(write_command(sockfdA, command, strlen(command), response)){
         printf("ERROR: Failed to send PASS command\n");
         return 1;
     }
@@ -407,7 +409,7 @@ int main(int argc, char** argv){
     URL url;
 
     // Create the url struct
-    if (create_url_struct(&url) != 0) {
+    if (create_url(&url) != 0) {
 		printf("ERROR: Failed to create URL Struct\n");
 		return 1;
 	}
@@ -424,7 +426,7 @@ int main(int argc, char** argv){
         printf("ERROR: getip()\n");
         return 1;
     }
-	if (parseFilename(path, &url)) {
+	if (parse_filename(path, &url)) {
         printf("ERROR: Failed to Parse Filename\n");
         return 1;
     }
@@ -462,7 +464,7 @@ int main(int argc, char** argv){
 	bzero(response, MAX_BUFFER_SIZE);
 	sprintf(command, "PASV\r\n");
     // Send passive mode command
-	int sockfdB = ftp_passive_mode(sockfdA, sockfdB, command, strlen(command), response);
+	int sockfdB = passive_mode(sockfdA, sockfdB, command, strlen(command), response);
 	if (sockfdB < 0) {
 		printf("ERROR: Failed to enter passive mode\n");
         return 1;
@@ -474,15 +476,15 @@ int main(int argc, char** argv){
 	bzero(command, MAX_BUFFER_SIZE);
 	bzero(response, MAX_BUFFER_SIZE);
     sprintf(filepath, "%s", url.path);
-	if (ftp_retrieve_file(sockfdA, filepath, command, response)) {
-        printf("ERROR: ftp_retrieve_file()\n");
+	if (retrieve_file(sockfdA, filepath, command, response)) {
+        printf("ERROR: retrieve_file()\n");
         return 1;
     }
     printf("Downloading...\n");
 
 	// 5: Download file
-	if (ftp_download_file(sockfdB, url.filename) != 0) {
-        printf("ERROR: ftp_download_file()\n");
+	if (download_file(sockfdB, url.filename) != 0) {
+        printf("ERROR: download_file()\n");
         return 1;
     }
     printf("Download of file %s complete!\n", url.filename);
