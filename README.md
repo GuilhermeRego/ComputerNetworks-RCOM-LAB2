@@ -1,6 +1,6 @@
 # FTP Download Application and Network Experiments
 
-A project developed for the **Redes de Computadores** (Computer Networks) course at **FEUP**, showcasing an FTP client in C and practical networking experiments.
+A project developed for the **Redes de Computadores** (Computer Networks) 2024-2025 course at **FEUP**, showcasing an FTP client in C and practical networking experiments. Please note that this README provides a summary of the project. For a detailed report, please refer to the [official documentation](https://github.com/GuilhermeRego/RCOM-Lab2/blob/main/RCOM_REPORT_LAB2_T9_up202207041_up202207784.pdf).
 
 ## Overview
 ### 1. FTP Download Application
@@ -12,6 +12,7 @@ A project developed for the **Redes de Computadores** (Computer Networks) course
   ```bash
   gcc -o download download.c
   ./download ftp://[user:password@]host/path
+  ```
   
 ### 2. Network Experiments
 - IP Configuration: Addressing and pings.
