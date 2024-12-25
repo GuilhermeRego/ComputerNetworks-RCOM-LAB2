@@ -13,7 +13,8 @@
 
 #define FTP_PORT 21
 
-#define MAX_BUFFER_SIZE 512
+#define MAX_BUFFER_SIZE 255
+#define COMMAND_SIZE 512
 
 typedef struct {
     char user[MAX_BUFFER_SIZE];
@@ -190,13 +191,13 @@ int create_socket(char* ip, int port) {
     // Open the TCP Socket
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         printf("ERROR: Failed to Open TCP Socket socket()\n");
-        return -1;
+        exit(-1);
     }
 
     // Connect the socket to the server
     if (connect(sockfd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
         printf("ERROR: Failed to connect socket to server connect()\n");
-        return -1;
+        exit(-1);
     }
 
     return sockfd;
@@ -304,6 +305,13 @@ int retr(int socket_id, const char* command, int command_size) {
         return 1;
     }
 
+    // Read the response from the server
+    char response[MAX_BUFFER_SIZE];
+    if (read_socket(socket_id, response) != 0) {
+        printf("ERROR: read_socket()\n");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -345,7 +353,7 @@ int download_file(int sockfdB, char* filename) {
     }
 
     // Read the file from the server
-    while ((res = read(sockfdB, buffer, sizeof(buffer)) > 0)) {
+    while ((res = read(sockfdB, buffer, sizeof(buffer)))) {
         // Check for any errors on the read
         if (res < 0) {
             printf("ERROR: read()\n");
@@ -383,7 +391,7 @@ int authenticate(const URL url, char* command, char* response, int sockfdA) {
     }
 
     // Get password command
-    bzero(command, MAX_BUFFER_SIZE);
+    bzero(command, COMMAND_SIZE);
     bzero(response, MAX_BUFFER_SIZE);
     sprintf(command, "PASS %s\r\n", url.password);
 
@@ -400,35 +408,35 @@ int main(int argc, char** argv){
 	// Check the user input
 	if(argc != 2){
 		printf("Usage: %s <url>\n", argv[0]);
-		return 1;
+		exit(-1);
 	}
 
     // Variables initialization
-	char command[MAX_BUFFER_SIZE];
+	char command[COMMAND_SIZE];
 	char response[MAX_BUFFER_SIZE];
     URL url;
 
     // Create the url struct
     if (create_url(&url) != 0) {
 		printf("ERROR: Failed to create URL Struct\n");
-		return 1;
+		exit(-1);
 	}
 
     // Parse URL
     if (parse_URL(argv[1], &url) != 0) {
         printf("ERROR: Failed to Parse URL\n");
-        return 1;
+        exit(-1);
     }
 
     // Get the ip address from the host
     char *path = url.path;
     if (getip(url.host, &url) != 0) {
         printf("ERROR: getip()\n");
-        return 1;
+        exit(-1);
     }
 	if (parse_filename(path, &url)) {
         printf("ERROR: Failed to Parse Filename\n");
-        return 1;
+        exit(-1);
     }
 
     printf("Username: %s\n", url.user);
@@ -442,51 +450,52 @@ int main(int argc, char** argv){
 	int sockfdA;
 	if((sockfdA = create_socket(url.ip, FTP_PORT)) < 0){
 		printf("ERROR: create_socket()\n");
-        return 1;
+        exit(-1);
 	}
 
     // Read the response from the server
 	if (read_socket(sockfdA, response) != 0) {
         printf("ERROR: read_socket()\n");
-        return 1;
+        exit(-1);
     }
     printf("Socket created\n");
 
 	// 2: Authenticate the user
     if (authenticate(url, command, response, sockfdA) != 0) {
         printf("ERROR: authenticate()\n");
-        return 1;
+        exit(-1);
     }
     printf("User authenticated\n");
 
 	// 3: Get passive mode command
-	bzero(command, MAX_BUFFER_SIZE);
+	bzero(command, COMMAND_SIZE);
 	bzero(response, MAX_BUFFER_SIZE);
 	sprintf(command, "PASV\r\n");
     // Send passive mode command
 	int sockfdB = passive_mode(sockfdA, sockfdB, command, strlen(command), response);
 	if (sockfdB < 0) {
 		printf("ERROR: Failed to enter passive mode\n");
-        return 1;
+        exit(-1);
     }
     printf("Passive mode activated\n");
 
 	// 4: Retrieve file
 	char filepath[MAX_BUFFER_SIZE];
-	bzero(command, MAX_BUFFER_SIZE);
+	bzero(command, COMMAND_SIZE);
 	bzero(response, MAX_BUFFER_SIZE);
     sprintf(filepath, "%s", url.path);
 	if (retrieve_file(sockfdA, filepath, command, response)) {
         printf("ERROR: retrieve_file()\n");
-        return 1;
+        exit(-1);
     }
     printf("Downloading...\n");
 
 	// 5: Download file
 	if (download_file(sockfdB, url.filename) != 0) {
         printf("ERROR: download_file()\n");
-        return 1;
+        exit(-1);
     }
+
     printf("Download of file %s complete!\n", url.filename);
 
 	close(sockfdA);

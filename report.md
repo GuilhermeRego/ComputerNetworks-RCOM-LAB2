@@ -90,7 +90,7 @@ ifconfig eth2 172.16.Y1.253/24
 
 ```
 echo 1 > /proc/sys/net/ipv4/ip_forward
-echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcast
+echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
 ```
 
 4 - Adicionar routes para que o TUX3 e o TUX2 consigam alcançar-se
@@ -112,10 +112,10 @@ ping 172.16.Y1.1 (Testar pingar o TUX2 através do TUX4)
 6 - Limpar as tabelas ARP em todos os pcs
 
 ```
-arp -d 172.16.51.253 (TuxY2)
-arp -d 172.16.50.254 (TuxY3)
-arp -d 172.16.50.1 (TuxY4)
-arp -d 172.16.51.1 (TuxY4)
+arp -d 172.16.Y1.253 (TuxY2)
+arp -d 172.16.Y0.254 (TuxY3)
+arp -d 172.16.Y0.1 (TuxY4)
+arp -d 172.16.Y1.1 (TuxY4)
 ```
 
 7 - Começar uma captura com duas instancias do Wireshark no TUX4 (eth1 e eth2) e fazer ping de TUX3 para TUX2:
@@ -151,7 +151,7 @@ ping 172.16.Y1.1 (TuxY3)
 route add default gw 172.16.T1.254 (no Tux2)
 route add default gw 172.16.Y0.254 (no Tux3)
 route add default gw 172.16.Y1.254 (no Tux4)
-
+```
 Na consola do MikroTik:
 ```
 /ip route add dst-address=172.16.Y0.0/24 gateway=172.16.Y1.253
@@ -160,54 +160,54 @@ Na consola do MikroTik:
 
 A partir do TUX3 pingar o TUX2, TUX4 e o Router, e verificar os resultados no Wireshark
 ```
-ping 172.16.Y0.255
+ping 172.16.Y0.254
 ping 172.16.Y1.1
 ping 172.16.Y1.254
 ```
 
 5 - Remover a rota do TUX2 ao 172.16.Y0.0/24 pelo TUX4 e desativa Accept Redirects
     
-    ```
-    sysctl net.ipv4.conf.eth1.accept_redirects=0
-    sysctl net.ipv4.conf.all.accept_redirects=0
-    route del -net 172.16.Y0.0 gw 172.16.Y1.253 netmask 255.255.255.0
-    route add -net 172.16.Y0.0/24 gw 172.16.Y1.254
-    ```
+```
+sysctl net.ipv4.conf.eth1.accept_redirects=0
+sysctl net.ipv4.conf.all.accept_redirects=0
+route del -net 172.16.Y0.0 gw 172.16.Y1.253 netmask 255.255.255.0
+route add -net 172.16.Y0.0/24 gw 172.16.Y1.254
+```
 
-    Pingar o TUX3 a partir do TUX2 e verificar os resultados no Wireshark
+Pingar o TUX3 a partir do TUX2 e verificar os resultados no Wireshark
 
-    ```
-    ping 172.16.Y0.1
-    ```
+```
+ping 172.16.Y0.1
+```
 
-    Usamos `traceroute -n 172.16.Y0.1` e observamos que a ligação é establecida a usar o Rc como Router. 
+Usamos `traceroute -n 172.16.Y0.1` e observamos que a ligação é establecida a usar o Rc como Router. 
 
-    Removemos a nova rota e voltamos a usar o TUX4 como Router e reativar o Accept_Redirects
+Removemos a nova rota e voltamos a usar o TUX4 como Router e reativar o Accept_Redirects
 
-    ```
-    route del -net 172.16.Y0.0 gw 172.16.Y1.254 netmask 255.255.255.0
-    route add -net 172.16.Y0.0/24 gw 172.16.Y1.253
-    ```
+```
+route del -net 172.16.Y0.0 gw 172.16.Y1.254 netmask 255.255.255.0
+route add -net 172.16.Y0.0/24 gw 172.16.Y1.253
+```
 
-    Usamos `traceroute -n 172.16.Y0.1` novamente para verificar o percurso.
+Usamos `traceroute -n 172.16.Y0.1` novamente para verificar o percurso.
 
 6 - Pingar o FTP Server e verificar o resultado no Wireshark
-    
-    ```
-    ping 172.16.1.10
-    ``` 
 
-    Na consola do MikroTik desativar o NAT:
-    
-    ```
-    /ip firewall nat disable 0
-    ```
+```
+ping 172.16.1.10
+``` 
 
-    Pingar novamente e verificar que não é establecida uma ligação
+Na consola do MikroTik desativar o NAT:
 
-    ```
-    ping 172.16.1.10
-    ```
+```
+/ip firewall nat disable 0
+```
+
+Pingar novamente e verificar que não é establecida uma ligação
+
+```
+ping 172.16.1.10
+```
 
 ## Experiência 5: DNS
 
@@ -218,5 +218,22 @@ ping 172.16.Y1.254
 nameserver 10.227.netlab.fe.up.pt
 ```
 
-    ```
-    nameserver
+# Experiência 6: TCP Connections
+
+### Passos:
+
+1 - Compilar aplicação de download:
+
+```
+gcc download.c -o download
+```
+
+2 - No Tux3, iniciar uma captura com o Wireshark e correr o download:
+
+```
+./download ftp://ftp.netlab.fe.up.pt/<resource>
+```
+
+3 - Verificar a captura no Wireshark
+
+4 - Repetir o download, mas a meio do download iniciar uma transferência no Tux2 e verificar a captura no Wireshark de ambas as máquinas (ainda não foi feito)
